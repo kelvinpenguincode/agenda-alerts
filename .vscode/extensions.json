@@ -1,0 +1,10 @@
+{
+  "recommendations": [
+    "ms-python.python",
+    "ms-python.vscode-pylance",
+    "esbenp.prettier-vscode",
+    "eamodio.gitlens",
+    "github.vscode-pull-request-github",
+    "ms-vsliveshare.vsliveshare"
+  ]
+}

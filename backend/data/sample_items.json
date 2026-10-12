@@ -1,0 +1,67 @@
+[
+  {
+    "id": "sample-isd-2026-11-10-04",
+    "sample": true,
+    "body": "isd",
+    "body_name": "Sample ISD Board of Trustees",
+    "meeting_date": "2026-11-10",
+    "category": "tax_rate",
+    "title_original": "Consider and take action on adoption of the 2026 tax rate",
+    "plain_summary": "The board will vote on next year's school tax rate. The proposed rate is lower than last year's, but the average home's bill may still go up because home values rose.",
+    "amounts": [
+      {
+        "label": "Proposed tax rate",
+        "value": 1.0125,
+        "unit": "per $100 of taxable value",
+        "source_quote": "proposed tax rate of $1.0125 per $100 valuation"
+      }
+    ],
+    "location": null,
+    "source": {
+      "url": "https://example.com/sample-isd/agenda.pdf",
+      "page": 3,
+      "quote": "Item 4. Consider and take action on adoption of the 2026 tax rate."
+    },
+    "verified": true
+  },
+  {
+    "id": "sample-city-2026-11-12-07",
+    "sample": true,
+    "body": "city",
+    "body_name": "Sample City Council",
+    "meeting_date": "2026-11-12",
+    "category": "zoning",
+    "title_original": "Public hearing on rezoning request, 1200 block of Example Road, from R-1 to MF-2",
+    "plain_summary": "A developer wants to change the zoning on a lot from single-family homes to multi-family housing. The council will hold a public hearing before voting.",
+    "amounts": [],
+    "location": {
+      "address": "1200 Example Road",
+      "lat": 29.9,
+      "lon": -95.7
+    },
+    "source": {
+      "url": "https://example.com/sample-city/agenda.pdf",
+      "page": 8,
+      "quote": "Public hearing on rezoning request, 1200 block of Example Road, from R-1 to MF-2."
+    },
+    "verified": true
+  },
+  {
+    "id": "sample-isd-2026-11-10-09",
+    "sample": true,
+    "body": "isd",
+    "body_name": "Sample ISD Board of Trustees",
+    "meeting_date": "2026-11-10",
+    "category": "school_policy",
+    "title_original": "Discussion of proposed changes to the 2027-28 instructional calendar",
+    "plain_summary": "The board will discuss moving the start of next school year earlier. No vote is scheduled yet.",
+    "amounts": [],
+    "location": null,
+    "source": {
+      "url": "https://example.com/sample-isd/agenda.pdf",
+      "page": 5,
+      "quote": "Item 9. Discussion of proposed changes to the 2027-28 instructional calendar."
+    },
+    "verified": true
+  }
+]
