@@ -1,3 +1,8 @@
+# large test data files - download locally from URLs in docs/SOURCES.md
+docs/test-data/*.pdf
+
+
+
 # secrets - never commit these
 .env
 *.env
