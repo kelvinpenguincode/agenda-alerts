@@ -1,3 +1,7 @@
 fastapi
 uvicorn[standard]
 python-dotenv
+requests
+bs4
+pypdf
+anthropic
