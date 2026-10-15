@@ -38,6 +38,7 @@ def fetch_jersey_village():
 
 
     save_folder = "../docs/test-data"
+    os.makedirs(save_folder, exist_ok=True)
 
     for agenda_url in agenda_links:
         filename = agenda_url.split("/")[-1] + ".pdf"
