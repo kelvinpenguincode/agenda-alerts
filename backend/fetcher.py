@@ -62,3 +62,5 @@ def fetch_jersey_village():
 
 if __name__ == "__main__":
     fetch_jersey_village()
+
+#essentially goes to the link and gets all the pdf agenda files

@@ -14,8 +14,10 @@ client = anthropic.Anthropic()
 
 pdf_folder = "../docs/test-data"
 
+#grabs only the pdf files
 pdf_files = [f for f in os.listdir(pdf_folder) if f.endswith(".pdf")]
 
+#loops through only the pdf files, and extracts all the text into one large string using PdfReader
 for pdf_file in pdf_files:
     agenda_data = {"filename": pdf_file, "pages": []}
     raw_text = ""
@@ -42,7 +44,7 @@ for pdf_file in pdf_files:
     Raw Agenda Text:
     {raw_text}
     """
-
+    #sends raw text to claude
     response = client.messages.create(
         model="claude-sonnet-4-6",
         max_tokens=2000,
@@ -52,7 +54,7 @@ for pdf_file in pdf_files:
     )
 
     all_agenda_data_analyzed.append(response.content[0].text)
-
+    #claude returns JSON string text which is taken and then saved
 for result in all_agenda_data_analyzed:
     print(result)
     print("---")
@@ -66,3 +68,5 @@ with open("../docs/test-data/analyzed_agendas.json", "w") as f:
     json.dump(all_agenda_data_analyzed, f, indent=2)
 
 print(f"Successfully processed {len(all_agenda_data)} agendas!")
+
+#extracts data from the pdfs and sends it to claude for analysis
