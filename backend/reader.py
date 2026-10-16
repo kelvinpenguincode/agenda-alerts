@@ -1,6 +1,11 @@
 import os
 import anthropic
 from pypdf import PdfReader
+from dotenv import load_dotenv
+import json
+load_dotenv()
+
+
 
 all_agenda_data = []
 all_agenda_data_analyzed = []
@@ -9,7 +14,7 @@ client = anthropic.Anthropic()
 
 pdf_folder = "../docs/test-data"
 
-pdf_files = os.listdir(pdf_folder)
+pdf_files = [f for f in os.listdir(pdf_folder) if f.endswith(".pdf")]
 
 for pdf_file in pdf_files:
     agenda_data = {"filename": pdf_file, "pages": []}
@@ -39,7 +44,7 @@ for pdf_file in pdf_files:
     """
 
     response = client.messages.create(
-        model="claude-3-5-sonnet-20241022",  # Or whichever model version you prefer
+        model="claude-sonnet-4-6",
         max_tokens=2000,
         messages=[
             {"role": "user", "content": prompt}
@@ -47,5 +52,17 @@ for pdf_file in pdf_files:
     )
 
     all_agenda_data_analyzed.append(response.content[0].text)
+
+for result in all_agenda_data_analyzed:
+    print(result)
+    print("---")
+
+print(f"Successfully processed {len(all_agenda_data)} agendas!")
+
+
+
+
+with open("../docs/test-data/analyzed_agendas.json", "w") as f:
+    json.dump(all_agenda_data_analyzed, f, indent=2)
 
 print(f"Successfully processed {len(all_agenda_data)} agendas!")
