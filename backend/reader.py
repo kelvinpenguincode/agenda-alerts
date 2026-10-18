@@ -3,9 +3,8 @@ import anthropic
 from pypdf import PdfReader
 from dotenv import load_dotenv
 import json
+
 load_dotenv()
-
-
 
 all_agenda_data = []
 all_agenda_data_analyzed = []
@@ -14,10 +13,10 @@ client = anthropic.Anthropic()
 
 pdf_folder = "../docs/test-data"
 
-#grabs only the pdf files
-pdf_files = [f for f in os.listdir(pdf_folder) if f.endswith(".pdf")]
+# grabs only the pdf files, limited to 3 for testing
+pdf_files = [f for f in os.listdir(pdf_folder) if f.endswith(".pdf")][:3]
 
-#loops through only the pdf files, and extracts all the text into one large string using PdfReader
+# loops through only the pdf files and extracts all the text into one large string
 for pdf_file in pdf_files:
     agenda_data = {"filename": pdf_file, "pages": []}
     raw_text = ""
@@ -34,6 +33,11 @@ for pdf_file in pdf_files:
     
     all_agenda_data.append(agenda_data)
 
+    # trim raw text so we don't send thousands of tokens to claude
+    print(f"{pdf_file}: {len(raw_text)} characters before trim")
+    raw_text = raw_text[:8000]
+    print(f"{pdf_file}: {len(raw_text)} characters after trim")
+
     prompt = f"""
     You are an expert data parser for municipal government agendas. 
     Analyze the following raw agenda text and extract each item into a clean JSON array of objects.
@@ -44,9 +48,10 @@ for pdf_file in pdf_files:
     Raw Agenda Text:
     {raw_text}
     """
-    #sends raw text to claude
+
+    # sends raw text to claude and gets back structured JSON
     response = client.messages.create(
-        model="claude-sonnet-4-6",
+        model="claude-haiku-4-5",
         max_tokens=2000,
         messages=[
             {"role": "user", "content": prompt}
@@ -54,19 +59,14 @@ for pdf_file in pdf_files:
     )
 
     all_agenda_data_analyzed.append(response.content[0].text)
-    #claude returns JSON string text which is taken and then saved
+
+# print results
 for result in all_agenda_data_analyzed:
     print(result)
     print("---")
 
-print(f"Successfully processed {len(all_agenda_data)} agendas!")
-
-
-
-
+# save to file
 with open("../docs/test-data/analyzed_agendas.json", "w") as f:
     json.dump(all_agenda_data_analyzed, f, indent=2)
 
 print(f"Successfully processed {len(all_agenda_data)} agendas!")
-
-#extracts data from the pdfs and sends it to claude for analysis
