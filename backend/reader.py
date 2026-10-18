@@ -3,6 +3,7 @@ import anthropic
 from pypdf import PdfReader
 from dotenv import load_dotenv
 import json
+from verify import parse_claude_output, verify_item
 
 load_dotenv()
 
@@ -20,23 +21,21 @@ pdf_files = [f for f in os.listdir(pdf_folder) if f.endswith(".pdf")][:3]
 for pdf_file in pdf_files:
     agenda_data = {"filename": pdf_file, "pages": []}
     raw_text = ""
-    
+
     file_path = os.path.join(pdf_folder, pdf_file)
     reader = PdfReader(file_path)
-    
+
     for page_num, page in enumerate(reader.pages):
         text = page.extract_text()
         raw_text += ", " + text
         if text:
             single_page = {"page_num": page_num, "page": text}
             agenda_data["pages"].append(single_page)
-    
+
     all_agenda_data.append(agenda_data)
 
     # trim raw text so we don't send thousands of tokens to claude
-    print(f"{pdf_file}: {len(raw_text)} characters before trim")
     raw_text = raw_text[:8000]
-    print(f"{pdf_file}: {len(raw_text)} characters after trim")
 
     prompt = f"""
     You are an expert data parser for municipal government agendas. 
@@ -58,7 +57,19 @@ for pdf_file in pdf_files:
         ]
     )
 
-    all_agenda_data_analyzed.append(response.content[0].text)
+    # parse claude's response and verify each item's numbers against the original text
+    raw_response = response.content[0].text
+    parsed_items = parse_claude_output(raw_response)
+
+
+
+    verified_items = []
+    for item in parsed_items:
+        is_verified = verify_item(raw_text, item["text"])
+        item["verified"] = is_verified
+        verified_items.append(item)
+
+    all_agenda_data_analyzed.append(verified_items)
 
 # print results
 for result in all_agenda_data_analyzed:
