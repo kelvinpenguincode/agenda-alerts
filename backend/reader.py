@@ -1,3 +1,4 @@
+from db import save_item
 import os
 import anthropic
 from pypdf import PdfReader
@@ -70,6 +71,9 @@ for pdf_file in pdf_files:
         verified_items.append(item)
 
     all_agenda_data_analyzed.append(verified_items)
+    for item in verified_items:
+        save_item(item, pdf_file)
+    print(f"Saved {len(verified_items)} items from {pdf_file}")
 
 # print results
 for result in all_agenda_data_analyzed:
