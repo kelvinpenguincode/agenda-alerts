@@ -1,4 +1,4 @@
-"""Agenda Alerts backend (starter).
+"""Agenda Alerts backend.
 
 Run from inside the backend/ folder:
     uvicorn main:app --reload --port 8000
@@ -6,23 +6,22 @@ Run from inside the backend/ folder:
 Then open http://localhost:8000/docs to try every endpoint in the browser.
 """
 
-import json
 import os
-from pathlib import Path
-
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+from db import save_item
+from geo import lookup_address
+
+# import supabase client from db.py
+from db import client as supabase
 
 load_dotenv()
 
-DATA_DIR = Path(__file__).parent / "data"
-
 app = FastAPI(title="Agenda Alerts API")
 
-# Which websites may call this API. Locally the React dev server is on :5173.
-# After deploying, add your Vercel URL to ALLOWED_ORIGINS (comma separated).
+# which websites may call this API
 origins = [
     o.strip()
     for o in os.getenv("ALLOWED_ORIGINS", "http://localhost:5173").split(",")
@@ -36,12 +35,6 @@ app.add_middleware(
 )
 
 
-def load_items() -> list[dict]:
-    """Right now this reads fake sample data. Later: read from the database."""
-    with open(DATA_DIR / "sample_items.json", encoding="utf-8") as f:
-        return json.load(f)
-
-
 @app.get("/api/health")
 def health():
     return {"status": "ok"}
@@ -49,28 +42,56 @@ def health():
 
 @app.get("/api/items")
 def list_items(body: str | None = None):
-    """All agenda items. Optional filter: ?body=isd or ?body=city"""
-    items = load_items()
+    # reads from supabase instead of sample file
+    query = supabase.table("agenda_items").select("*")
     if body:
-        items = [item for item in items if item["body"] == body]
-    return items
+        query = query.eq("body", body)
+    result = query.execute()
+    return result.data
+
+
+@app.get("/api/lookup")
+def lookup(address: str):
+    # step 1: geocode the address
+    geo = lookup_address(address)
+
+    if not geo["covered"]:
+        return {
+            "covered": False,
+            "reason": geo.get("reason", "We don't cover this area yet"),
+            "items": []
+        }
+
+    # step 2: fetch matching items from supabase
+    items = []
+
+    if geo["city_covered"]:
+        city_result = supabase.table("agenda_items").select("*").eq("body", "city").execute()
+        items += city_result.data
+
+    if geo["isd_covered"]:
+        isd_result = supabase.table("agenda_items").select("*").eq("body", "isd").execute()
+        items += isd_result.data
+
+    return {
+        "covered": True,
+        "lat": geo["lat"],
+        "lon": geo["lon"],
+        "city": geo.get("city"),
+        "isd": geo.get("isd"),
+        "items": items
+    }
 
 
 class TaxImpactRequest(BaseModel):
-    home_value: float = Field(gt=0, description="Appraised value of the home, in dollars")
-    exemption: float = Field(default=0, ge=0, description="Total exemptions, in dollars")
+    home_value: float = Field(gt=0, description="Appraised value of the home in dollars")
+    exemption: float = Field(default=0, ge=0, description="Total exemptions in dollars")
     current_rate: float = Field(gt=0, description="Current rate per $100 of taxable value")
     proposed_rate: float = Field(gt=0, description="Proposed rate per $100 of taxable value")
 
 
 @app.post("/api/tax-impact")
 def tax_impact(req: TaxImpactRequest):
-    """What a proposed tax rate does to one household's yearly bill.
-
-    TODO (calculator owner): check this formula against your ISD's real
-    tax-rate notice before trusting it - appraisal caps and exemptions
-    differ by situation.
-    """
     taxable_value = max(req.home_value - req.exemption, 0)
     current_bill = taxable_value / 100 * req.current_rate
     proposed_bill = taxable_value / 100 * req.proposed_rate
