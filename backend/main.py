@@ -13,15 +13,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from db import save_item
 from geo import lookup_address
-
-# import supabase client from db.py
 from db import client as supabase
 
 load_dotenv()
 
 app = FastAPI(title="Agenda Alerts API")
 
-# which websites may call this API
 origins = [
     o.strip()
     for o in os.getenv("ALLOWED_ORIGINS", "http://localhost:5173").split(",")
@@ -42,7 +39,6 @@ def health():
 
 @app.get("/api/items")
 def list_items(body: str | None = None):
-    # reads from supabase instead of sample file
     query = supabase.table("agenda_items").select("*")
     if body:
         query = query.eq("body", body)
@@ -52,7 +48,6 @@ def list_items(body: str | None = None):
 
 @app.get("/api/lookup")
 def lookup(address: str):
-    # step 1: geocode the address
     geo = lookup_address(address)
 
     if not geo["covered"]:
@@ -62,7 +57,6 @@ def lookup(address: str):
             "items": []
         }
 
-    # step 2: fetch matching items from supabase
     items = []
 
     if geo["city_covered"]:
@@ -84,20 +78,34 @@ def lookup(address: str):
 
 
 class TaxImpactRequest(BaseModel):
-    home_value: float = Field(gt=0, description="Appraised value of the home in dollars")
-    exemption: float = Field(default=0, ge=0, description="Total exemptions in dollars")
-    current_rate: float = Field(gt=0, description="Current rate per $100 of taxable value")
-    proposed_rate: float = Field(gt=0, description="Proposed rate per $100 of taxable value")
+    home_value: float = Field(gt=0, description="Appraised home value in dollars")
+    over_65: bool = Field(default=False, description="Is the homeowner over 65 or disabled?")
 
 
 @app.post("/api/tax-impact")
 def tax_impact(req: TaxImpactRequest):
-    taxable_value = max(req.home_value - req.exemption, 0)
-    current_bill = taxable_value / 100 * req.current_rate
-    proposed_bill = taxable_value / 100 * req.proposed_rate
+    # CFISD homestead exemption: 20% of value + $140,000 flat
+    exemption = (req.home_value * 0.20) + 140000
+
+    # additional exemption for over 65 or disabled
+    if req.over_65:
+        exemption += 75000
+
+    taxable_value = max(req.home_value - exemption, 0)
+
+    # CFISD tax rates
+    current_rate = 1.0869  # 2024
+    proposed_rate = 1.0669  # 2025
+
+    current_bill = taxable_value / 100 * current_rate
+    proposed_bill = taxable_value / 100 * proposed_rate
+
     return {
+        "home_value": req.home_value,
+        "exemption": round(exemption, 2),
         "taxable_value": round(taxable_value, 2),
         "current_bill": round(current_bill, 2),
         "proposed_bill": round(proposed_bill, 2),
         "difference": round(proposed_bill - current_bill, 2),
+        "note": "Estimate for CFISD school tax only. Does not include city, county, or other taxing units."
     }
