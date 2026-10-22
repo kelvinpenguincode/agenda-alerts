@@ -15,10 +15,8 @@ client = anthropic.Anthropic()
 
 pdf_folder = "../docs/test-data"
 
-# grabs only the pdf files, limited to 3 for testing
 pdf_files = [f for f in os.listdir(pdf_folder) if f.endswith(".pdf")][:3]
 
-# loops through only the pdf files and extracts all the text into one large string
 for pdf_file in pdf_files:
     agenda_data = {"filename": pdf_file, "pages": []}
     raw_text = ""
@@ -35,52 +33,53 @@ for pdf_file in pdf_files:
 
     all_agenda_data.append(agenda_data)
 
-    # trim raw text so we don't send thousands of tokens to claude
     raw_text = raw_text[:8000]
 
     prompt = f"""
-    You are an expert data parser for municipal government agendas. 
-    Analyze the following raw agenda text and extract each item into a clean JSON array of objects.
-    Each object must have these exact keys:
-    - "item_number": The label or number of the item (e.g., "7.1", "A", "Item 3")
-    - "text": The full description/content of the item
-    
+    You are explaining local government decisions to a regular resident who has never attended a government meeting.
+
+    Analyze the following agenda text and return a JSON array. Each object must have these exact keys:
+
+    - "item_number": the label exactly as printed (e.g. "A", "C.1", "CONSENT AGENDA 5")
+    - "plain_summary": 1-2 sentences explaining what is being decided in plain English, as if texting a neighbor. No jargon. Say why a resident should care.
+    - "category": one of: tax_rate, zoning, school_policy, budget, contract, personnel, other
+    - "amounts": list of any dollar amounts or rates mentioned, each as a string (e.g. ["$475,000", "$1.0669 per $100"])
+    - "meeting_date": extract the meeting date from the text if visible, in YYYY-MM-DD format, or null if not found
+    - "action_required": true if the council/board will vote on this item, false if it is just a discussion or presentation
+
     Raw Agenda Text:
     {raw_text}
+
+    Return only the JSON array, no explanation, no markdown, no code blocks.
     """
 
-    # sends raw text to claude and gets back structured JSON
     response = client.messages.create(
         model="claude-haiku-4-5",
-        max_tokens=2000,
+        max_tokens=4000,
         messages=[
             {"role": "user", "content": prompt}
         ]
     )
 
-    # parse claude's response and verify each item's numbers against the original text
     raw_response = response.content[0].text
     parsed_items = parse_claude_output(raw_response)
 
-
-
     verified_items = []
     for item in parsed_items:
-        is_verified = verify_item(raw_text, item["text"])
+        # verify against plain_summary now instead of text
+        is_verified = verify_item(raw_text, item.get("plain_summary", ""))
         item["verified"] = is_verified
         verified_items.append(item)
 
     all_agenda_data_analyzed.append(verified_items)
     for item in verified_items:
-        save_item(item, pdf_file)
+        save_item(item, pdf_file, body="city", body_name="City of Jersey Village")
     print(f"Saved {len(verified_items)} items from {pdf_file}")
 
-# print results
 for result in all_agenda_data_analyzed:
     print(result)
     print("---")
 
-# save to file
 with open("../docs/test-data/analyzed_agendas.json", "w") as f:
     json.dump(all_agenda_data_analyzed, f, indent=2)
 
