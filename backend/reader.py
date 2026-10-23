@@ -15,7 +15,7 @@ client = anthropic.Anthropic()
 
 pdf_folder = "../docs/test-data"
 
-pdf_files = [f for f in os.listdir(pdf_folder) if f.endswith(".pdf")][:3]
+pdf_files = [f for f in os.listdir(pdf_folder) if f.endswith(".pdf")]
 
 for pdf_file in pdf_files:
     agenda_data = {"filename": pdf_file, "pages": []}
