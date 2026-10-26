@@ -18,7 +18,7 @@ from pydantic import BaseModel, Field
 
 import db
 from discover import discover_agenda
-from geo import _body, body_token, lookup_address, lookup_coordinates
+from geo import _body, ai_allowed, body_token, lookup_address, lookup_coordinates
 
 load_dotenv()
 
@@ -112,7 +112,7 @@ def list_items(body: str | None = None):
     query = client.table("agenda_items").select("*")
     if body:
         query = query.eq("body", body)
-    return [_normalize_row(r) for r in query.execute().data]
+    return [_normalize_row(r) for r in query.execute().data if r.get("item_number") != db.NO_AGENDA]
 
 
 @app.get("/api/lookup")
@@ -136,13 +136,25 @@ def lookup(address: str | None = None, lat: float | None = None, lon: float | No
         return {"found": False, "reason": geo["reason"], "bodies": []}
 
     for body in geo["bodies"]:
-        items = _sorted([_normalize_row(r) for r in db.items_for_body(body["body_name"])])
+        rows = db.items_for_body(body["body_name"])
+        markers = [r for r in rows if r.get("item_number") == db.NO_AGENDA]
+        items = _sorted([_normalize_row(r) for r in rows if r.get("item_number") != db.NO_AGENDA])
         body["items"] = items
+        # Did we already search recently and find nothing? Then don't pay again yet.
+        checked = [_date_or_none(m.get("meeting_date")) for m in markers]
+        recently_checked = any(
+            d and (datetime.date.today() - datetime.date.fromisoformat(d)).days <= STALE_AFTER_DAYS
+            for d in checked
+        )
         # Our own scraped bodies are always "ready". Others need a fresh AI search
         # if we have nothing stored or only old meetings.
-        body["needs_discovery"] = not body["scraped"] and not _is_fresh(items)
+        body["needs_discovery"] = (
+            body["ai_allowed"] and not _is_fresh(items) and not recently_checked
+        )
         if items:
             body["source_url"] = items[0]["source_url"]
+        elif markers and (markers[0].get("filename") or "").startswith("http"):
+            body["source_url"] = markers[0]["filename"]
     return geo
 
 
@@ -160,13 +172,17 @@ def agenda(req: AgendaRequest):
     """Search the web for this body's latest agenda and summarize it (slow: ~20-60s)."""
     if req.kind not in ("city", "school", "county"):
         raise HTTPException(400, "Unknown kind")
+    # Hard stop before any credits are spent: home-area and blocked bodies never search
+    if not ai_allowed(req.kind, req.name, req.state):
+        raise HTTPException(403, "We don't run searches for this area.")
     if not hmac.compare_digest(req.token, body_token(req.kind, req.name, req.state)):
         raise HTTPException(403, "Invalid token. Look up the address again.")
 
     body = _body(req.kind, req.name, req.display_name, req.state, req.state_name)
     result = discover_agenda(body, datetime.date.today().isoformat())
-    if result["items"]:
-        db.save_discovered(body, result)
+    # Cache real results and "nothing found", but never errors (those should retry)
+    if result["status"] in ("ok", "not_found"):
+        db.save_discovered(body, {**result, "checked_on": datetime.date.today().isoformat()})
 
     source_url = result.get("agenda_url") or result.get("portal_url")
     for item in result["items"]:

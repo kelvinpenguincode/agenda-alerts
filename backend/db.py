@@ -7,6 +7,9 @@ load_dotenv()
 
 _client = None
 
+# item_number of the placeholder row meaning "we searched and found no agenda"
+NO_AGENDA = "__no_agenda__"
+
 
 def get_client():
     """Create the Supabase client on first use, so the API still starts
@@ -55,7 +58,28 @@ def save_discovered(body, result):
     """Cache items the AI search found. Uses the existing agenda_items
     columns only; the agenda URL goes in `filename`."""
     client = get_client()
-    if client is None or not result.get("items"):
+    if client is None:
+        return
+    if not result.get("items"):
+        # Remember that we looked and found nothing, so we don't pay to search
+        # again on every visit. main.py hides this row and uses its date.
+        row = {
+            "id": f"{body['key']}-{NO_AGENDA}"[:200],
+            "body": body["kind"] if body["kind"] != "school" else "isd",
+            "body_name": body["body_name"],
+            "meeting_date": result.get("checked_on"),
+            "item_number": NO_AGENDA,
+            "plain_summary": "",
+            "category": "other",
+            "amounts": "[]",
+            "action_required": False,
+            "verified": False,
+            "filename": result.get("portal_url") or "",
+        }
+        try:
+            client.table("agenda_items").upsert(row).execute()
+        except Exception as e:
+            print("Supabase write failed:", e)
         return
     rows = []
     date = result.get("meeting_date") or "unknown-date"

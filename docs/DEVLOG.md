@@ -12,3 +12,5 @@ Short dated notes: what you built, what you decided, where AI tools helped. This
 - `/api/lookup` now matches stored items by `body_name` (it used to return every city's items for any city). New `/api/agenda` endpoint. Tax calculator accepts any rates.
 - Frontend redesign: per-government cards that load in parallel, "Use my location", shareable `?q=` links, source links on every item, topic filter counts, mobile and dark mode. Unified the name to Agenda Alerts.
 - Switched the on-demand agenda search from the Anthropic API to the OpenAI API (`OPENAI_API_KEY`). The local scraper scripts (`reader.py`, `reader_cfisd.py`) still use Anthropic.
+- Cut search cost: max 2 web searches per agenda, low search context, 'no agenda found' results cached for 21 days, county agenda loads only on request.
+- Cy-Fair/Cypress home area (any CFISD address) and Harris County never use the AI search: they only show our scraped data, and the server refuses AI searches for them. Address lookups never use AI credits.

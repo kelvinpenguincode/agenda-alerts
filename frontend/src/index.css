@@ -442,3 +442,14 @@ a { color: var(--accent); }
   .body-head { flex-direction: column; }
   .search-btn, .locate-btn { flex: 1 1 auto; }
 }
+
+.load-btn {
+  padding: 0.5rem 1rem;
+  background: var(--btn);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+.load-btn:hover { background: var(--btn-hover); }

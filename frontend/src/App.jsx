@@ -201,10 +201,26 @@ function BodyCard({ body, state, filter, onRetry }) {
         </div>
       )}
 
-      {state.status !== "loading" && allItems.length === 0 && state.status !== "error" && (
+      {!state.status && body.needs_discovery && allItems.length === 0 && (
+        <div className="body-empty">
+          <p>Want to see what {body.display_name} is deciding?</p>
+          <button className="load-btn" onClick={onRetry}>
+            Find the latest agenda
+          </button>
+        </div>
+      )}
+
+      {state.status !== "loading" &&
+        allItems.length === 0 &&
+        state.status !== "error" &&
+        !(!state.status && body.needs_discovery) && (
         <div className="body-empty">
           <p>
-            We couldn't find a recent agenda for {body.display_name}.
+            {body.ai_allowed || body.scraped
+              ? `We couldn't find a recent agenda for ${body.display_name}.`
+              : body.home_area
+                ? `We don't cover ${body.display_name} yet. In the Cy-Fair area we cover Cy-Fair ISD and Jersey Village.`
+                : `We don't cover ${body.display_name} yet.`}
             {sourceUrl ? " You can check their agenda page directly." : ""}
           </p>
           {sourceUrl && (
@@ -473,7 +489,10 @@ export default function App() {
       }
       setLookup({ ...data, label: data.matched_address || label });
       setAgendas({});
-      data.bodies.filter((b) => b.needs_discovery).forEach(discover);
+      // Each search costs money, so the county only loads when someone asks for it
+      data.bodies
+        .filter((b) => b.needs_discovery && b.kind !== "county")
+        .forEach(discover);
       if (params.address) {
         const url = new URL(window.location);
         if (url.searchParams.get("q") !== params.address) {

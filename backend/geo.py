@@ -30,6 +30,25 @@ SCRAPED_BODIES = {
     ("Cypress-Fairbanks Independent School District", "TX"): "Cypress-Fairbanks ISD",
 }
 
+# Our home area (Cy-Fair / Cypress, unincorporated Harris County). Addresses here
+# only ever show data from our own scrapers: the AI search is never used, so they
+# cost nothing. Any address in one of these school districts is "home area".
+HOME_AREA_DISTRICTS = {
+    ("Cypress-Fairbanks Independent School District", "TX"),
+}
+# Bodies the AI search must never run for, wherever the address is.
+NO_AI_BODIES = {
+    ("Harris County", "TX"),
+}
+
+
+def ai_allowed(kind, census_name, state, home_area=False):
+    """True only if /api/agenda is allowed to spend credits on this body."""
+    if home_area or (census_name, state) in NO_AI_BODIES:
+        return False
+    return (census_name, state) not in SCRAPED_BODIES
+
+
 _SUFFIXES = {
     "city": "City of {}",
     "town": "Town of {}",
@@ -122,6 +141,13 @@ def bodies_from_geographies(geographies):
     county = _first(geographies, "Counties")
     if county:
         bodies.append(_body("county", county["NAME"], county["NAME"], state, state_name))
+
+    home_area = any((b["name"], b["state"]) in HOME_AREA_DISTRICTS for b in bodies)
+    for b in bodies:
+        b["home_area"] = home_area
+        b["ai_allowed"] = ai_allowed(b["kind"], b["name"], b["state"], home_area)
+        if not b["ai_allowed"]:
+            b["token"] = None  # without a token, /api/agenda refuses to search
 
     return bodies, state, state_name
 
