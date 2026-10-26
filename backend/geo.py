@@ -74,7 +74,7 @@ def _short_district(name):
 def body_token(kind, name, state):
     """Signature so /api/agenda only runs for bodies our own lookup produced.
     Stops strangers from making us pay for AI searches on arbitrary text."""
-    secret = os.getenv("TOKEN_SECRET") or os.getenv("ANTHROPIC_API_KEY") or "dev"
+    secret = os.getenv("TOKEN_SECRET") or os.getenv("OPENAI_API_KEY") or "dev"
     msg = f"{kind}|{name}|{state}".encode()
     return hmac.new(secret.encode(), msg, hashlib.sha256).hexdigest()[:24]
 

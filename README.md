@@ -2,6 +2,8 @@
 
 Tells residents what their city council and school district are about to vote on, in plain language, with a link to the exact line in the original agenda and what it means for their own tax bill.
 
+Works for any US address: Jersey Village and CFISD come from our own scrapers, and everywhere else is found on demand with OpenAI's web search (see `docs/CONTRACT.md`).
+
 Built for the 2026 Congressional App Challenge.
 
 ## Folder map (who owns what)
@@ -54,7 +56,7 @@ cd frontend
 npm install
 npm run dev
 ```
-Open http://localhost:5173. You should see three sample agenda items.
+Open http://localhost:5173 and search any US address. Searching outside Jersey Village / CFISD needs `OPENAI_API_KEY` in `backend/.env`.
 
 ## Daily workflow
 

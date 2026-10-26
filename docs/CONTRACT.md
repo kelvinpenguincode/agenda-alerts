@@ -30,7 +30,7 @@ Each entry in `amounts`: `label`, `value`, `unit`, `source_quote`.
 | `GET /api/health` | Is the server alive |
 | `GET /api/items` | All stored agenda items. Optional `?body=isd` or `?body=city` |
 | `GET /api/lookup?address=...` (or `?lat=..&lon=..`) | Works for any US address. Returns `found`, `matched_address`, `state`, and `bodies`: the city/town, school district and county, each with `kind`, `display_name`, `body_name`, `scraped`, `token`, stored `items`, and `needs_discovery` |
-| `POST /api/agenda` | Body: one body from `/api/lookup` (`kind`, `name`, `display_name`, `state`, `state_name`, `token`). Searches the web for its latest agenda with Claude, then downloads the agenda and checks every number. Slow (20-60 s). Returns `status` (`ok`, `not_found`, `error`), `meeting_date`, `agenda_url`, `portal_url`, `items` |
+| `POST /api/agenda` | Body: one body from `/api/lookup` (`kind`, `name`, `display_name`, `state`, `state_name`, `token`). Searches the web for its latest agenda with OpenAI (`gpt-5-mini` + web search), then downloads the agenda and checks every number. Slow (20-60 s). Returns `status` (`ok`, `not_found`, `error`), `meeting_date`, `agenda_url`, `portal_url`, `items` |
 | `POST /api/tax-impact` | Body: `home_value`, optional `over_65`. Optional `current_rate`, `proposed_rate`, `exemption`, `rate_unit` (`per100`, `mills`, `percent`). Without rates it uses the CFISD 2024 vs 2025 preset. Returns `taxable_value`, `current_bill`, `proposed_bill`, `difference`, labels and a `note` |
 
 Items returned by the API also carry `item_number`, `source_url` (link to the original agenda) and `verified`.

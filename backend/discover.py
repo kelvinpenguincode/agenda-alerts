@@ -1,7 +1,7 @@
 """Find and summarize the latest agenda for ANY local government in the US.
 
-Step 1: Claude, with the web search tool, finds the official agenda for the
-        body and drafts plain-English summaries with an exact quote for each.
+Step 1: An OpenAI model, with its web search tool, finds the official agenda
+        for the body and drafts plain-English summaries with an exact quote for each.
 Step 2: We download that agenda ourselves and check every number in every
         summary against the real document (same rule as verify.py). Items
         only get "verified" if the numbers really appear in the agenda.
@@ -15,14 +15,14 @@ import re
 import socket
 from urllib.parse import urlparse
 
-import anthropic
+import openai
 import requests
 from bs4 import BeautifulSoup
 from pypdf import PdfReader
 
 from verify import parse_claude_output, verify_item
 
-MODEL = os.getenv("DISCOVER_MODEL", "claude-haiku-4-5")
+MODEL = os.getenv("DISCOVER_MODEL", "gpt-5-mini")
 CATEGORIES = {"tax_rate", "zoning", "school_policy", "budget", "contract", "personnel", "other"}
 UA = {"User-Agent": "Mozilla/5.0 (compatible; AgendaAlerts/1.0; Congressional App Challenge project)"}
 
@@ -71,23 +71,18 @@ If you cannot find a real agenda from the last 3 months or upcoming, set "found"
 "portal_url" if you found where agendas are posted, and return an empty "items" list."""
 
 
-def _ask_claude(body, today):
-    client = anthropic.Anthropic()
-    messages = [{"role": "user", "content": _prompt(body, today)}]
-    tools = [{
-        "type": "web_search_20250305",
-        "name": "web_search",
-        "max_uses": 6,
-        "user_location": {"type": "approximate", "region": body["state_name"], "country": "US"},
-    }]
-    response = None
-    for _ in range(3):  # long searches can pause; send the turn back to continue
-        response = client.messages.create(model=MODEL, max_tokens=4000, messages=messages, tools=tools)
-        if response.stop_reason != "pause_turn":
-            break
-        messages = messages + [{"role": "assistant", "content": response.content}]
-
-    text = "".join(b.text for b in response.content if b.type == "text")
+def _ask_model(body, today):
+    client = openai.OpenAI(timeout=120)
+    response = client.responses.create(
+        model=MODEL,
+        input=_prompt(body, today),
+        tools=[{
+            "type": "web_search",
+            "user_location": {"type": "approximate", "country": "US", "region": body["state_name"]},
+        }],
+        reasoning={"effort": "low"},
+    )
+    text = response.output_text or ""
     start, end = text.find("{"), text.rfind("}")
     if start == -1 or end == -1:
         raise ValueError("No JSON in model reply")
@@ -161,12 +156,32 @@ def _clean_item(raw, source_text, index):
     }
 
 
+def _explain_error(e):
+    """Short, safe reason for the site (never includes keys or raw API output)."""
+    msg = str(e).lower()
+    if isinstance(e, openai.AuthenticationError) or "api_key" in msg or "api key" in msg:
+        return "Search isn't set up: the server's OPENAI_API_KEY is missing or invalid."
+    if isinstance(e, openai.RateLimitError):
+        if "quota" in msg or "billing" in msg:
+            return "The OpenAI account is out of credits. Add credits in OpenAI billing settings."
+        return "Too many searches at once. Try again in a minute."
+    if isinstance(e, openai.PermissionDeniedError):
+        return "This OpenAI key isn't allowed to use this model or web search."
+    if isinstance(e, (openai.NotFoundError, openai.BadRequestError)):
+        return "The search request was rejected. Check DISCOVER_MODEL is a model that supports web search."
+    if isinstance(e, (openai.APITimeoutError, openai.APIConnectionError)):
+        return "The search timed out. Try again."
+    if isinstance(e, (ValueError, KeyError)):
+        return "The search finished but didn't return a readable agenda. Try again."
+    return "We couldn't search for this agenda right now."
+
+
 def discover_agenda(body, today):
     try:
-        found = _ask_claude(body, today)
+        found = _ask_model(body, today)
     except Exception as e:
-        print("AI search failed:", e)
-        return {"status": "error", "message": "We couldn't search for this agenda right now.", "items": []}
+        print("AI search failed:", type(e).__name__, e)
+        return {"status": "error", "message": _explain_error(e), "items": []}
 
     agenda_url = found.get("agenda_url")
     source_text = fetch_document_text(agenda_url) if agenda_url else ""
